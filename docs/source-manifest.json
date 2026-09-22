@@ -1,0 +1,42 @@
+[
+  {
+    "file": "01-ma-stack-rsi-trend.pdf",
+    "sha256": "e46d0eb25aca9166bfb0a6a25a5697bd9f8a5a17d5c73b860d9204660459902c",
+    "reference_path": "../oanda-local/references/01-ma-stack-rsi-trend.pdf"
+  },
+  {
+    "file": "02-multi-ma-macd-trend.pdf",
+    "sha256": "aa09a042d88b1adf8660adb291100dfe6ec8f3cc5898fa07f36cb78ecc6e5e1b",
+    "reference_path": "../oanda-local/references/02-multi-ma-macd-trend.pdf"
+  },
+  {
+    "file": "03-ma-stochastic-crossover.pdf",
+    "sha256": "52d8fc7050a1c976c4892f66ecaee24fb01a0c27c8496b84afb92a8fcc5a4da6",
+    "reference_path": "../oanda-local/references/03-ma-stochastic-crossover.pdf"
+  },
+  {
+    "file": "04-bollinger-heikin-ashi-reversal.pdf",
+    "sha256": "eb24804a9ef2765453a5637b8fee5902caaff5f5ec2fdffb201fa44166271f43",
+    "reference_path": "../oanda-local/references/04-bollinger-heikin-ashi-reversal.pdf"
+  },
+  {
+    "file": "05-keltner-stoch-zigzag-reversal.pdf",
+    "sha256": "632b67845360f3037a6162a424af22f215ca16e8b897da07b9fc6ee08ccd98ae",
+    "reference_path": "../oanda-local/references/05-keltner-stoch-zigzag-reversal.pdf"
+  },
+  {
+    "file": "06-donchian-breakout-oscillator.pdf",
+    "sha256": "e6b24eb1d314894626663b85a0ecb35eb17ecd2f1fb8b6077efbc9ed69e46336",
+    "reference_path": "../oanda-local/references/06-donchian-breakout-oscillator.pdf"
+  },
+  {
+    "file": "07-fractal-extreme-reversal.pdf",
+    "sha256": "8cec46ea0113101c4209155031c245cec3f2a4a95f0656556171cae2dcd0f3f1",
+    "reference_path": "../oanda-local/references/07-fractal-extreme-reversal.pdf"
+  },
+  {
+    "file": "08-oscillator-confluence.pdf",
+    "sha256": "5724c095a1f3324bddd4a1f35b16026423ba1364d00af36a8882991504fd1f6b",
+    "reference_path": "../oanda-local/references/08-oscillator-confluence.pdf"
+  }
+]

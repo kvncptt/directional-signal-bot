@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "directional-signal-bot"
+version = "0.1.0"
+description = "Local closed-candle directional signals and paper evaluation"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+directional-bot = "directional_bot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+directional_bot = ["web/*.html", "web/*.css", "web/*.js", "web/vendor/*"]
