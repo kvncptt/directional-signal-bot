@@ -2,6 +2,7 @@
 import argparse,json,sqlite3,time
 from dataclasses import asdict
 from datetime import datetime,timezone
+from zoneinfo import ZoneInfo
 from .features import Features
 from .models import Candle
 from .storage import Store
@@ -18,6 +19,14 @@ def trial_for(db,run):
     row=db.execute('SELECT * FROM cross_trial WHERE run_id=?',(run,)).fetchone()
     return dict(row) if row else None
 
+def entry_allowed(trial,start,timestamp,now):
+    closed=datetime.fromisoformat(timestamp)
+    if timestamp<start or not 0<=(now-closed).total_seconds()<=90:return False
+    if trial.get('schedule')=='weekdays':
+        tz=ZoneInfo('America/Detroit')
+        return now.astimezone(tz).weekday()<5 and closed.astimezone(tz).weekday()<5
+    return timestamp<trial['end']
+
 def process(store,run,trial,streams,last,now):
     cfg=json.loads(store.db.execute('SELECT config FROM runs WHERE id=?',(run,)).fetchone()[0])
     targets={'EUR_USD':'02','NZD_USD':'02','GBP_USD':'01','USD_JPY':'01'}
@@ -31,7 +40,7 @@ def process(store,run,trial,streams,last,now):
         with store.db:
             store.resolve(run,c,row['idx'],'minutes')
             start=trial.get('second_start') if targets[c.symbol] in ('03','08') else trial['start']
-            if not(start<=c.timestamp<trial['end']) or not 0<=(now-datetime.fromisoformat(c.timestamp)).total_seconds()<=90:continue
+            if not entry_allowed(trial,start,c.timestamp,now):continue
             if len(f.rows)<cfg['warmup']:continue
             sid=targets[c.symbol];v=next(v for v in evaluate(f.rows,cfg) if v.strategy==sid)
             if v.direction=='NEUTRAL':continue
@@ -56,7 +65,7 @@ def main():
     trial=trial_for(s.db,run);streams={};last=0
     if not trial:raise ValueError('No configured trial')
     try:
-        while datetime.now(timezone.utc).timestamp()<datetime.fromisoformat(trial['end']).timestamp()+240:
+        while trial.get('schedule')=='weekdays' or datetime.now(timezone.utc).timestamp()<datetime.fromisoformat(trial['end']).timestamp()+240:
             last=process(s,run,trial,streams,last,datetime.now(timezone.utc));time.sleep(2)
         with s.db:s.db.execute("UPDATE cross_trial SET status='completed' WHERE run_id=?",(run,))
     finally:s.close()

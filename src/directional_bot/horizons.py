@@ -33,7 +33,7 @@ def attach(state):
         for feed in feeds:
             for t in feed['trades']:
                 version = 'quality-v2' if sid == '08' and (t.get('trend_context') or {}).get('quality_version') == 'quality-v2' else 'trend-v1'
-                if trial and trial['start'] <= t['timestamp'] < trial['end']:version='parallel-trial'
+                if trial and trial['start'] <= t['timestamp'] and (trial.get('schedule')=='weekdays' or t['timestamp'] < trial['end']):version='parallel-trial'
                 cohorts.setdefault(version, []).append(t)
         if sid == '08' and state.get('quality_policy'):
             cohorts.setdefault('quality-v2', [])

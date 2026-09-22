@@ -42,7 +42,7 @@ def snapshot(path):
             if feed:strategy.update({k:feed[k] for k in ('state','last_close','price','message')})
             if override and trial:
                 age=(datetime.now(timezone.utc)-datetime.fromisoformat(trial['heartbeat'])).total_seconds()
-                if base['now']>=trial['end']:strategy.update(state='completed',message='Today’s parallel trial has ended; saved results remain available.')
+                if trial.get('schedule')!='weekdays' and base['now']>=trial['end']:strategy.update(state='completed',message='Today’s parallel trial has ended; saved results remain available.')
                 elif age>30:strategy.update(state='stale',message='Parallel strategy evaluator is unavailable.')
             if base['phase']=='disconnected':strategy['state']='stale'
             records=db.execute('''SELECT a.idx,a.timestamp,a.symbol,a.direction,a.entry,a.regime,
@@ -88,7 +88,7 @@ def handler(db_path):
                 strat=next(s for s in state['strategies'] if s['id']==sid)
                 output=io.StringIO();writer=csv.DictWriter(output,fieldnames=['timestamp','symbol','direction','entry','regime','result_1m','close_1m','result_3m','close_3m','admission','gate_reason'],extrasaction='ignore');writer.writeheader();writer.writerows(strat['trades'])
                 data=output.getvalue().encode();mime='text/csv'
-            elif target.path in ('/','/app.js','/style.css','/chart.js','/focus.js','/market-clock.js','/vendor/lightweight-charts.js'):
+            elif target.path in ('/','/app.js','/signals.js','/style.css','/chart.js','/focus.js','/market-clock.js','/vendor/lightweight-charts.js'):
                 name='index.html' if target.path=='/' else target.path[1:]
                 data=(WEB/name).read_bytes();mime='text/html' if name=='index.html' else 'text/css' if name.endswith('.css') else 'text/javascript'
             else:self.send_error(404);return

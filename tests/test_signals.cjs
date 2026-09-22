@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict');
+const {activeSignalGroups}=require('../src/directional_bot/web/signals.js');
+const now=Date.parse('2026-09-22T14:00:30Z');
+const trade=(direction='UP',seconds=0,admission='APPROVED')=>({direction,timestamp:new Date(now-seconds*1000).toISOString(),entry:1.1,admission});
+const feed=(sid,trades,h=3)=>({id:sid,strategy_id:sid,pair:'EUR_USD',primary_horizon:h,state:'live',last_close:new Date(now).toISOString(),trades});
+const state=(...strategies)=>({phase:'collecting',strategies});
+let s=state(feed('01',[trade(),trade('UP',10)]),feed('02',[]));
+assert.equal(activeSignalGroups(s,now)[0].votes,1);assert.equal(activeSignalGroups(s,now)[0].total,2);
+s.strategies[1].trades=[trade('UP',30)];assert.equal(activeSignalGroups(s,now)[0].votes,2);
+s.strategies.forEach(f=>f.last_close=new Date(now+150000).toISOString());
+assert.equal(activeSignalGroups(s,now+150000)[0].votes,1); // expires independently
+assert.equal(activeSignalGroups(s,now+180000).length,0);
+s=state(feed('01',[trade()]),feed('02',[trade('DOWN')]));
+assert.equal(activeSignalGroups(s,now).length,2);assert(activeSignalGroups(s,now).every(g=>g.votes===1));
+assert.equal(activeSignalGroups(state(feed('03',[trade('UP',60)],1)),now).length,0);
+assert.equal(activeSignalGroups(state(feed('01',[trade('UP',0,'BLOCKED'),trade('UP',-10)])),now).length,0);
+s.strategies[0].heat={state:'OFFLINE'};assert.equal(activeSignalGroups(s,now).length,1);
+s.phase='disconnected';assert.equal(activeSignalGroups(s,now).length,0);
+console.log('Signal agreement, duplicate votes, direction conflicts, expiry, future and blocked entry checks passed.');
+const {pastSignals}=require('../src/directional_bot/web/signals.js');
+const old={...trade('UP',180),result_1m:'WIN',result_3m:'LOSS',close_1m:1.2,close_3m:1.0};
+let history=state(feed('01',[old,trade()]),feed('03',[{...old,result_1m:'TIE'}],1));
+let rows=pastSignals(history,now);assert.equal(rows.length,2);assert.equal(rows.find(r=>r.strategy==='01').outcome,'LOSS');assert.equal(rows.find(r=>r.strategy==='03').outcome,'TIE');
+history.phase='disconnected';assert.equal(pastSignals(history,now).length,2);
+assert.equal(pastSignals(state(feed('01',[trade('UP',180)])),now)[0].outcome,'PENDING');
+assert.equal(pastSignals(state(feed('01',[trade('UP',180,'BLOCKED'),trade('UP',180,'BASELINE')])),now).length,0);
+assert.equal(pastSignals(state(feed('01',[old,old])),now).length,1);
+console.log('History horizon selection, expiry boundary, ties, pending, offline and duplicate checks passed.');

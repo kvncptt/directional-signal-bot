@@ -49,9 +49,9 @@ function updatePanel(p){
 async function refresh(){
  try{
   const response=await fetch('/api/state');if(!response.ok)throw Error();const state=await response.json();
-  heatState=state;heatUpdated=Date.now();drawHeat();
+  heatState=state;heatUpdated=Date.now();drawHeat();drawSignals();
   $('cross-status').hidden=!state.cross_trial;
-  if(state.cross_trial)$('cross-status').textContent=`Strategies 01 + 02: 3m focus · Strategies 03 + 08: 1m focus · four pairs each · trial ${stamp(state.cross_trial.start)} to ${stamp(state.cross_trial.end)} Detroit. Both outcomes recorded; each group’s trial results are separate from earlier entries.`;
+  if(state.cross_trial)$('cross-status').textContent=`Strategies 01 + 02: 3m focus · Strategies 03 + 08: 1m focus · four pairs each · ${state.cross_trial.schedule==='weekdays'?'ongoing weekday collection':`trial ${stamp(state.cross_trial.start)} to ${stamp(state.cross_trial.end)} Detroit`}. Both outcomes recorded; each group’s trial results are separate from earlier entries.`;
   renderSelectedPair();
   const live=state.strategies.filter(f=>f.state==='live').length;
   $('session-status').textContent=`${state.phase==='collecting'?'Collecting':state.phase.replaceAll('_',' ')} · ${live}/${state.strategies.length} strategy/pair monitors · ${state.schedule==='weekdays'?'Mon–Fri':'Timed session'}`;
@@ -129,3 +129,40 @@ function renderHorizon(p){
  const row=(name,c)=>`<tr><td>${esc(name)}</td><td>${c.n}</td><td>${pct(c.rates['1'])}</td><td>${pct(c.rates['3'])}</td><td>${esc(c.label)}</td></tr>`;
  $(p.prefix+'horizon-body').innerHTML='<p class="muted">Approved entries only, with both outcomes settled. Ties count as non-wins. Early leads are descriptive; samples are small and entries can overlap. Both horizons remain recorded.</p>'+Object.entries(a.cohorts).map(([version,d])=>`<p><strong>${esc(version===a.current?'Current rules':'Earlier rules')} · ${esc(version)}</strong></p><div class="table-wrap"><table><thead><tr><th>Scope</th><th>Entries</th><th>1m wins</th><th>3m wins</th><th>Assessment</th></tr></thead><tbody>${row('All assigned pairs',d.overall)}${Object.entries(d.pairs).map(([pair,c])=>row(pair.replace('_','/'),c)).join('')}</tbody></table></div><p class="muted">${d.overall.only_1m_wins} entries won only at 1m; ${d.overall.only_3m_wins} won only at 3m. ${d.overall.unresolved} approved entries await both outcomes.</p>`).join('');
 }
+
+function drawSignals(){
+ drawPastSignals();
+ const root=$('live-signals'),status=$('signal-status');
+ const fresh=heatState&&Date.now()-heatUpdated<15000;
+ if(!fresh||heatState.phase!=='collecting'){
+  status.textContent='Unavailable';root.innerHTML='<p class="signal-empty">Live connection unavailable. Active signals cannot be confirmed.</p>';return;
+ }
+ const groups=activeSignalGroups(heatState),offline=heatState.strategies.some(f=>f.state!=='live'||f.heat?.state==='OFFLINE'||Date.now()-Date.parse(f.last_close)>90000);
+ status.textContent=groups.length?`${groups.length} active direction${groups.length===1?'':'s'}${offline?' · some feeds unavailable':''}`:offline?'Some feeds unavailable':'Watching all pairs';
+ if(!groups.length){root.innerHTML='<p class="signal-empty">No active approved signals. Waiting for the next setup.</p>';return}
+ const clock=expires=>{const n=Math.max(0,Math.ceil((expires-Date.now())/1000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`};
+ root.querySelectorAll('.signal-empty').forEach(e=>e.remove());
+ root.querySelectorAll('[data-signal]').forEach(e=>{if(!groups.some(g=>g.key===e.dataset.signal))e.remove()});
+ for(const g of groups){
+  let card=Array.from(root.children).find(e=>e.dataset.signal===g.key);
+  if(!card){card=document.createElement('button');card.dataset.signal=g.key;card.onclick=()=>selectPair(g.pair);root.appendChild(card)}
+  const side=g.direction==='UP'?'BUY':'SELL',next=Math.min(...g.entries.map(e=>e.expires));
+  card.className='signal-ticket '+g.direction.toLowerCase();
+  card.setAttribute('aria-label',`${g.pair.replace('_','/')} ${side}, ${g.horizon} minutes, ${g.votes} of ${g.total} strategies. Compare charts`);
+  const conflict=groups.some(other=>other.pair===g.pair&&other.direction!==g.direction);
+  card.innerHTML=`<span class="signal-ticket-top"><strong>${esc(g.pair.replace('_','/'))}</strong><b class="${g.direction}">${side}</b><span class="signal-votes">${g.votes}/${g.total}</span></span><span class="signal-ticket-time"><span>${g.horizon} min trade · M1 candles</span><strong>${clock(next)}</strong></span><span class="signal-expiry-label">${g.votes>1?'Next strategy expiry':'Until expiry'}${conflict?' · Opposing signal also active':''}</span>${g.entries.map(e=>`<span class="signal-entry"><span>Strategy ${esc(e.strategy)} · entry ${esc(time(e.start))}</span><strong>${Number(e.price).toFixed(g.pair.endsWith('JPY')?3:5)}</strong><span>${clock(e.expires)} left</span></span>`).join('')}`;
+ }
+}
+setInterval(drawSignals,1000);
+
+function drawPastSignals(){
+ if(!heatState)return;
+ const all=pastSignals(heatState),limit=$('history-limit').value,rows=limit==='all'?all:all.slice(0,Number(limit));
+ const settled=all.filter(r=>r.outcome!=='PENDING'),wins=settled.filter(r=>r.outcome==='WIN').length,losses=settled.filter(r=>r.outcome==='LOSS').length,ties=settled.filter(r=>r.outcome==='TIE').length;
+ const stale=Date.now()-heatUpdated>=15000||heatState.phase!=='collecting';
+ $('history-status').textContent=`Showing ${rows.length} of ${all.length} · ${wins} wins · ${losses} losses · ${ties} ties · ${all.length-settled.length} awaiting result${stale?' · Saved data; live updates unavailable':''}`;
+ const markup=rows.map(r=>{const price=x=>x==null?'—':Number(x).toFixed(r.pair.endsWith('JPY')?3:5);return `<tr><td>${stamp(r.start)}</td><td><button class="signal-link" data-past-pair="${esc(r.pair)}">${esc(r.pair.replace('_','/'))}</button></td><td>${esc(r.strategy)}</td><td class="${r.direction}">${r.direction==='UP'?'BUY':'SELL'}</td><td>${r.horizon} min</td><td>${price(r.entry)}</td><td>${price(r.close)}</td><td class="${r.outcome}">${r.outcome==='PENDING'?'Awaiting result':r.outcome}</td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No expired approved signals yet. Results appear here after their measurement window ends.</td></tr>';
+ const body=$('past-signals');
+ if(body.innerHTML!==markup){body.innerHTML=markup;body.querySelectorAll('[data-past-pair]').forEach(b=>b.onclick=()=>selectPair(b.dataset.pastPair))}
+}
+$('history-limit').onchange=drawPastSignals;

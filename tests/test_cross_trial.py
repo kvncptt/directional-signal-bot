@@ -50,3 +50,12 @@ class CrossTrialTests(unittest.TestCase):
    self.assertIn('rejection wick',d['reason'])
    self.assertEqual(json.loads(d['context'])['quality_version'],'quality-v2')
   s.close()
+
+ def test_weekday_collection_continues_past_trial_end(self):
+  from directional_bot.cross_trial import entry_allowed
+  trial={'schedule':'weekdays','end':'2026-09-23T04:00:00+00:00'}
+  start='2026-09-22T14:00:00+00:00'
+  for stamp,expected in [('2026-09-24T14:00:00+00:00',True),('2026-09-26T14:00:00+00:00',False),('2026-09-28T14:00:00+00:00',True)]:
+   self.assertEqual(entry_allowed(trial,start,stamp,datetime.fromisoformat(stamp)),expected)
+  trial['schedule']='deadline'
+  self.assertFalse(entry_allowed(trial,start,'2026-09-24T14:00:00+00:00',datetime(2026,9,24,14,tzinfo=timezone.utc)))
